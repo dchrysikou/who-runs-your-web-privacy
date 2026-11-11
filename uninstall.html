@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Sorry to see you go · Who Runs Your Web</title>
+<style>
+:root {
+  --bg: #141820; --surface: #1A1E28; --sunken: #1E2230; --border-h: #2A2E3A;
+  --text: #EEEEF0; --text-dim: #B8BCC8; --secondary: #6B6C75;
+  --accent: #9FEF00; --accent-bg: rgba(159,239,0,0.05); --warning: #C4884A;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #F5F6F8; --surface: #FFFFFF; --sunken: #F0F1F4; --border-h: #D5D8E0;
+    --text: #1A1E28; --text-dim: #4A4E5A; --secondary: #6B6C75;
+    --accent: #3F7A00; --accent-bg: rgba(63,122,0,0.08); --warning: #A8641F;
+  }
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.card { width: 100%; max-width: 480px; background: var(--surface); border: 1px solid var(--border-h); border-left: 3px solid var(--accent); border-radius: 10px; padding: 26px; }
+h1 { font-size: 20px; margin-bottom: 8px; }
+p { color: var(--text-dim); margin-bottom: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chip { padding: 7px 13px; border-radius: 999px; font: inherit; font-size: 13px; cursor: pointer; border: 1px solid var(--border-h); background: var(--sunken); color: var(--text-dim); }
+.chip:hover { border-color: var(--accent); color: var(--text); }
+.chip.selected { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
+label { display: block; margin: 12px 0 6px; font-size: 13px; color: var(--text-dim); }
+.field { width: 100%; padding: 9px 11px; border-radius: 6px; border: 1px solid var(--border-h); background: var(--sunken); color: var(--text); font: inherit; font-size: 14px; }
+.field:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea.field { min-height: 84px; resize: vertical; }
+.note { font-size: 12px; color: var(--secondary); margin: 6px 0 0; }
+button.send { margin-top: 16px; padding: 9px 18px; border-radius: 6px; font: inherit; font-weight: 600; cursor: pointer; border: 1px solid var(--accent); background: var(--accent-bg); color: var(--accent); }
+button.send:disabled { opacity: .5; cursor: default; }
+.status { min-height: 20px; margin-top: 12px; font-size: 13px; color: var(--secondary); }
+.status.ok { color: var(--accent); }
+.status.err { color: var(--warning); }
+.foot { margin-top: 18px; font-size: 12px; color: var(--secondary); }
+.foot a { color: inherit; }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>Sorry to see you go.</h1>
+  <p>Who Runs Your Web has been removed. If you have a moment, what was missing or wrong? It helps me decide what to fix.</p>
+
+  <div class="chips" id="chips">
+    <button type="button" class="chip" data-topic="not-useful">Not useful to me</button>
+    <button type="button" class="chip" data-topic="too-slow">Slowed my browser</button>
+    <button type="button" class="chip" data-topic="privacy">Privacy concerns</button>
+    <button type="button" class="chip" data-topic="found-alternative">Found something better</button>
+    <button type="button" class="chip" data-topic="other">Something else</button>
+  </div>
+
+  <label for="message">Anything to add? (optional)</label>
+  <textarea class="field" id="message" maxlength="1000"></textarea>
+  <p class="note">Please don't include personal details or sites you visited.</p>
+
+  <label for="email">Email (optional, only if you'd like a reply)</label>
+  <input class="field" id="email" type="email" maxlength="200" autocomplete="off">
+
+  <button class="send" id="send" type="button">Send</button>
+  <div class="status" id="status" role="status"></div>
+
+  <p class="foot">Sending this links your answer to the anonymous install ID the extension used for usage counts. It contains nothing about your browsing. <a href="PRIVACY.html">Privacy policy</a></p>
+</main>
+
+<script>
+const FN  = 'https://nzxtglrwnghuvpqpmppw.supabase.co/functions/v1';
+const KEY = 'sb_publishable_TxDCaI7D1Ar5RPiCxGIRSA_lTmm8Sfl'; // publishable, designed to be public
+
+const params = new URLSearchParams(location.search);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const VERSION_RE = /^\d{1,3}(\.\d{1,3}){1,3}$/;
+const installId = UUID_RE.test(params.get('id') || '') ? params.get('id') : null;
+const version   = VERSION_RE.test(params.get('v') || '') ? params.get('v') : '';
+
+const post = (name, body) => fetch(`${FN}/${name}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', apikey: KEY },
+  body: JSON.stringify(body),
+});
+
+// Count the uninstall once (the server ignores repeats on the same day).
+if (installId && version) {
+  post('track', { install_id: installId, event: 'uninstall', version }).catch(() => {});
+}
+
+let topic = null;
+const statusEl = document.getElementById('status');
+const sendBtn  = document.getElementById('send');
+const say = (t, k) => { statusEl.textContent = t; statusEl.className = 'status' + (k ? ' ' + k : ''); };
+
+document.getElementById('chips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  const was = chip.classList.contains('selected');
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+  topic = was ? null : chip.dataset.topic;
+  if (!was) chip.classList.add('selected');
+});
+
+sendBtn.addEventListener('click', async () => {
+  const message = document.getElementById('message').value.trim();
+  if (!topic && !message) { say('Pick a reason or write a message first.', 'err'); return; }
+  sendBtn.disabled = true;
+  say('Sending…');
+  try {
+    const res = await post('feedback', {
+      source: 'uninstall',
+      topic: topic || 'other',
+      message,
+      email: document.getElementById('email').value.trim(),
+      version,
+      install_id: installId,
+    });
+    if (res.status === 400) { say("That email address doesn't look right.", 'err'); sendBtn.disabled = false; return; }
+    if (!res.ok) throw new Error(String(res.status));
+    say('Thank you. That really helps.', 'ok');
+  } catch {
+    say("Couldn't send right now. You can email whorunsyourweb@gmail.com instead.", 'err');
+    sendBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
