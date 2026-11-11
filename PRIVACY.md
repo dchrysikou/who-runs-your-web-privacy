@@ -33,7 +33,6 @@ The extension can block ad and tracking requests. It is **off by default**. It u
 
 To check a site's TLS certificate and security headers, the extension sends the **host name** of the page (for example `www.example.com`) to our scanning service, hosted on Railway. It does not send the full address, the page content, form data, cookies, or any identifier such as an install ID. This is necessary for the check itself.
 
-<!-- CONFIRM BEFORE PUBLISHING: what does the Railway service log or keep (request logs, IP addresses, retention)? State it here. If you have not checked, keep this paragraph limited to what the extension sends. -->
 
 ## Anonymous usage counts
 
